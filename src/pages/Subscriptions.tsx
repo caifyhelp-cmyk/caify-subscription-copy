@@ -14,7 +14,7 @@ import { StatusBadge } from '../components/ui/StatusBadge';
 import { SUBSCRIPTION_STATUS_LABELS } from '../constants/labels';
 import { format } from 'date-fns';
 import type { SubscriptionStatus } from '../mock/types';
-import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Pencil, Check, X } from 'lucide-react';
 
 export const Subscriptions: React.FC = () => {
     const { subscriptions, updateSubscriptionStatus } = useSubscriptionStore();
@@ -24,6 +24,8 @@ export const Subscriptions: React.FC = () => {
 
     const [searchQuery, setSearchQuery] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editingValue, setEditingValue] = useState<string>('');
 
     const visibleCustomers = getCustomersVisibleToRole(currentRole, currentSalesId);
     const visibleCustomerIds = new Set(visibleCustomers.map(c => c.customerId));
@@ -32,10 +34,7 @@ export const Subscriptions: React.FC = () => {
         .filter(s => visibleCustomerIds.has(s.customerId))
         .map(s => {
             const customer = customers.find(c => c.customerId === s.customerId);
-            return {
-                ...s,
-                customerName: customer?.name || 'Unknown',
-            };
+            return { ...s, customerName: customer?.name || 'Unknown' };
         });
 
     const {
@@ -64,9 +63,27 @@ export const Subscriptions: React.FC = () => {
             : <ArrowDown className="ml-1 h-4 w-4 text-indigo-600 inline" />;
     };
 
-    const handleStatusChange = (subscriptionId: string, status: string) => {
+    const startEdit = (subscriptionId: string, currentStatus: string) => {
+        setEditingId(subscriptionId);
+        setEditingValue(currentStatus);
+    };
+
+    const cancelEdit = () => {
+        setEditingId(null);
+        setEditingValue('');
+    };
+
+    const saveEdit = (subscriptionId: string) => {
+        updateSubscriptionStatus(subscriptionId, editingValue as SubscriptionStatus, currentRole, 'Current User');
+        setEditingId(null);
+        setEditingValue('');
+    };
+
+    const handleActionChange = (subscriptionId: string, status: string) => {
         updateSubscriptionStatus(subscriptionId, status as SubscriptionStatus, currentRole, 'Current User');
     };
+
+    const canEdit = currentRole !== 'SALES';
 
     return (
         <div className="space-y-6">
@@ -125,14 +142,54 @@ export const Subscriptions: React.FC = () => {
                                 </Td>
                                 <Td className="text-gray-500">{s.product}</Td>
                                 <Td>
-                                    <StatusBadge status={s.status} label={SUBSCRIPTION_STATUS_LABELS[s.status] || s.status} type="subscription" />
+                                    {editingId === s.subscriptionId ? (
+                                        <div className="flex items-center gap-1">
+                                            <select
+                                                value={editingValue}
+                                                onChange={(e) => setEditingValue(e.target.value)}
+                                                className="rounded-md border-0 py-1 text-gray-900 ring-1 ring-inset ring-indigo-400 px-2 text-sm focus:ring-2 focus:ring-indigo-600 w-28"
+                                                autoFocus
+                                            >
+                                                {Object.entries(SUBSCRIPTION_STATUS_LABELS).map(([k, v]) => (
+                                                    <option key={k} value={k}>{v}</option>
+                                                ))}
+                                            </select>
+                                            <button
+                                                onClick={() => saveEdit(s.subscriptionId)}
+                                                className="p-1 rounded text-white bg-indigo-600 hover:bg-indigo-700"
+                                                title="저장"
+                                            >
+                                                <Check className="h-3.5 w-3.5" />
+                                            </button>
+                                            <button
+                                                onClick={cancelEdit}
+                                                className="p-1 rounded text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                                                title="취소"
+                                            >
+                                                <X className="h-3.5 w-3.5" />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-1.5 group">
+                                            <StatusBadge status={s.status} label={SUBSCRIPTION_STATUS_LABELS[s.status] || s.status} type="subscription" />
+                                            {canEdit && (
+                                                <button
+                                                    onClick={() => startEdit(s.subscriptionId, s.status)}
+                                                    className="opacity-0 group-hover:opacity-100 p-1 rounded text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all"
+                                                    title="상태 수정"
+                                                >
+                                                    <Pencil className="h-3 w-3" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
                                 </Td>
                                 <Td className="text-gray-500">{format(new Date(s.startAt), 'yyyy-MM-dd')}</Td>
                                 <Td className="text-gray-500">{format(new Date(s.nextBillingAt), 'yyyy-MM-dd')}</Td>
                                 <Td>
                                     <select
                                         value={s.status}
-                                        onChange={(e) => handleStatusChange(s.subscriptionId, e.target.value)}
+                                        onChange={(e) => handleActionChange(s.subscriptionId, e.target.value)}
                                         className="rounded-md border-0 py-1.5 text-gray-900 ring-1 ring-inset ring-gray-300 px-3 text-sm focus:ring-2 focus:ring-indigo-600 w-32"
                                         disabled={currentRole === 'SALES'}
                                         title={currentRole === 'SALES' ? "영업 담당자는 상태를 변경할 수 없습니다." : "상태 변경"}

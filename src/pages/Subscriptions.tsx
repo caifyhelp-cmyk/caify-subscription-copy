@@ -16,13 +16,20 @@ import { format } from 'date-fns';
 import type { SubscriptionStatus } from '../mock/types';
 import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
+const STATUS_SELECT_CLASSES: Record<string, string> = {
+    ACTIVE: 'bg-green-50 text-green-700 ring-green-600/20 hover:ring-green-400',
+    TRIAL: 'bg-yellow-50 text-yellow-700 ring-yellow-600/20 hover:ring-yellow-400',
+    PAYMENT_FAILED: 'bg-red-50 text-red-700 ring-red-600/20 hover:ring-red-400',
+    SUSPENDED: 'bg-red-50 text-red-700 ring-red-600/20 hover:ring-red-400',
+    CANCELLED: 'bg-red-50 text-red-700 ring-red-600/20 hover:ring-red-400',
+};
+
 export const Subscriptions: React.FC = () => {
     const { subscriptions, updateSubscriptionStatus } = useSubscriptionStore();
     const { getCustomersVisibleToRole, customers } = useCustomerStore();
     const { currentRole, currentSalesId } = useAuthStore();
     const navigate = useNavigate();
 
-    // Filters
     const [searchQuery, setSearchQuery] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
 
@@ -69,6 +76,8 @@ export const Subscriptions: React.FC = () => {
         updateSubscriptionStatus(subscriptionId, status as SubscriptionStatus, currentRole, 'Current User');
     };
 
+    const canEdit = currentRole !== 'SALES';
+
     return (
         <div className="space-y-6">
             <h2 className="text-xl font-bold text-gray-900">구독 관리</h2>
@@ -112,7 +121,6 @@ export const Subscriptions: React.FC = () => {
                             <Th className="cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleSort('nextBillingAt')}>
                                 다음 결제예정일 <SortIcon columnKey="nextBillingAt" />
                             </Th>
-                            <Th>관리 액션</Th>
                         </Tr>
                     </Thead>
                     <Tbody>
@@ -126,21 +134,23 @@ export const Subscriptions: React.FC = () => {
                                 </Td>
                                 <Td className="text-gray-500">{s.product}</Td>
                                 <Td>
-                                    <StatusBadge status={s.status} label={SUBSCRIPTION_STATUS_LABELS[s.status] || s.status} type="subscription" />
+                                    {canEdit ? (
+                                        <select
+                                            value={s.status}
+                                            onChange={(e) => handleStatusChange(s.subscriptionId, e.target.value)}
+                                            title="클릭하여 상태 변경"
+                                            className={`rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset cursor-pointer border-0 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow ${STATUS_SELECT_CLASSES[s.status] ?? 'bg-gray-100 text-gray-600 ring-gray-500/10'}`}
+                                        >
+                                            {Object.entries(SUBSCRIPTION_STATUS_LABELS).map(([k, v]) => (
+                                                <option key={k} value={k}>{v}</option>
+                                            ))}
+                                        </select>
+                                    ) : (
+                                        <StatusBadge status={s.status} label={SUBSCRIPTION_STATUS_LABELS[s.status] || s.status} type="subscription" />
+                                    )}
                                 </Td>
                                 <Td className="text-gray-500">{format(new Date(s.startAt), 'yyyy-MM-dd')}</Td>
                                 <Td className="text-gray-500">{format(new Date(s.nextBillingAt), 'yyyy-MM-dd')}</Td>
-                                <Td>
-                                    <select
-                                        value={s.status}
-                                        onChange={(e) => handleStatusChange(s.subscriptionId, e.target.value)}
-                                        className="rounded-md border-0 py-1.5 text-gray-900 ring-1 ring-inset ring-gray-300 px-3 text-sm focus:ring-2 focus:ring-indigo-600 w-32"
-                                        disabled={currentRole === 'SALES'}
-                                        title={currentRole === 'SALES' ? "영업 담당자는 상태를 변경할 수 없습니다." : "상태 변경"}
-                                    >
-                                        {Object.entries(SUBSCRIPTION_STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                                    </select>
-                                </Td>
                             </Tr>
                         ))}
                     </Tbody>

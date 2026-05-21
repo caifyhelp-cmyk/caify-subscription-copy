@@ -4,7 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  base: '/admin/',
+  base: '/caify-subscription-copy/',
   build: {
     sourcemap: false,
   },
